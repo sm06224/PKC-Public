@@ -22468,7 +22468,7 @@ async function init() {
       win.document.write(
         '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u25B6 ' + safeLabel + '</title>'
         + '<style>html,body{margin:0;padding:0;height:100%}iframe{width:100%;height:100%;border:none}</style></head>'
-        + '<body><iframe src="' + blobUrl + '" sandbox="allow-scripts" title="' + safeLabel + '"></iframe></body></html>');
+        + '<body><iframe src="' + blobUrl + '" sandbox="allow-same-origin allow-scripts" title="' + safeLabel + '"></iframe></body></html>');
       win.document.close();
     } else {
       // ポップアップブロック時: unsandboxed fallback は危険なため行わない

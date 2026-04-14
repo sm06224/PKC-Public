@@ -67,8 +67,13 @@
         output.innerText += `\nあなた: ${text}\nAI: `;
         
         const chunks = await window.engine.chat.completions.create({
-            messages: [{ role: "user", content: text }],
-            stream: true
+            messages: [
+                // ここで「日本語で答えろ」と強く命令します
+                { role: "system", content: "あなたは誠実で親切な日本人のアシスタントです。必ず日本語で回答してください。" },
+                { role: "user", content: text }
+            ],
+            stream: true,
+            temperature: 0.7, // 少し柔軟な回答にする
         });
 
         for await (const chunk of chunks) {

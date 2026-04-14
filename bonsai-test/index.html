@@ -1,34 +1,4 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>1-bit LLM Chat (Bonsai 8B)</title>
-    <style>
-        body { font-family: sans-serif; max-width: 800px; margin: 20px auto; background: #f4f4f4; }
-        #chat-container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        #output { height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; white-space: pre-wrap; }
-        #input-area { display: flex; gap: 10px; }
-        input { flex-grow: 1; padding: 10px; }
-        button { padding: 10px 20px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; }
-        button:disabled { background: #ccc; }
-        #status { font-size: 0.8em; color: #666; margin-top: 5px; }
-    </style>
-</head>
-<body>
-
-<div id="chat-container">
-    <h2>Bonsai 1-bit Chat</h2>
-    <div id="output">モデルの初期化をお待ちください...</div>
-    <div id="input-area">
-        <input type="text" id="user-input" placeholder="メッセージを入力..." disabled>
-        <button id="send-btn" disabled>送信</button>
-    </div>
-    <div id="status">Status: 準備中...</div>
-</div>
-
 <script type="module">
-    // WebLLMのCDNからインポート
     import * as webllm from "https://esm.run/@mlc-ai/web-llm";
 
     const output = document.getElementById("output");
@@ -36,56 +6,51 @@
     const userInput = document.getElementById("user-input");
     const sendBtn = document.getElementById("send-btn");
 
-    // モデルID (Bonsai-8B または軽量な1.7B)
-    const selectedModel = "Bonsai-8B-1bit-q4f16_1-MLC"; 
+    // --- 修正ポイント：ライブラリが標準対応しているモデルIDを指定 ---
+    // 軽量で日本語も通りやすい Llama-3-8B の量子化版を指定します
+    const selectedModel = "Llama-3-8B-Instruct-q4f16_1-MLC"; 
 
     let engine;
 
     async function init() {
         try {
-            status.innerText = "Status: モデルをダウンロード中 (約1.1GB)...";
+            status.innerText = "Status: 初期化中...";
             
             // WebLLMエンジンの作成
+            // 標準リストにないモデルを使う場合は、第2引数で明示的にAppConfigを渡す必要がありますが、
+            // まずは標準対応しているモデルで導通確認を行います。
             engine = await webllm.CreateMLCEngine(selectedModel, {
                 initProgressCallback: (report) => {
                     status.innerText = `Status: ${report.text}`;
                 }
             });
 
-            output.innerText += "\n[システム] 準備完了！チャットを開始できます。\n";
+            output.innerText = "[システム] 準備完了！チャットを開始できます。\n";
             userInput.disabled = false;
             sendBtn.disabled = false;
         } catch (e) {
-            output.innerText = `エラーが発生しました: ${e.message}\nWebGPUが有効なブラウザ（Chrome等）を使用してください。`;
+            output.innerText = `エラーが発生しました: ${e.message}\n`;
+            console.error(e);
         }
     }
 
+    // （sendMessage関数は前のコードと同じでOKです）
     async function sendMessage() {
         const text = userInput.value;
         if (!text) return;
-
         userInput.value = "";
         output.innerText += `\nあなた: ${text}\nAI: `;
-
         const messages = [{ role: "user", content: text }];
-        
-        // ストリーミング生成
         const chunks = await engine.chat.completions.create({ messages, stream: true });
-        
-        let fullResponse = "";
         for await (const chunk of chunks) {
             const delta = chunk.choices[0].delta.content || "";
-            fullResponse += delta;
             output.innerText += delta;
-            output.scrollTop = output.scrollHeight; // 自動スクロール
+            output.scrollTop = output.scrollHeight;
         }
         output.innerText += "\n";
     }
 
     sendBtn.onclick = sendMessage;
     userInput.onkeypress = (e) => { if (e.key === "Enter") sendMessage(); };
-
     init();
 </script>
-</body>
-</html>

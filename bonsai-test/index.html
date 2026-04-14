@@ -2,28 +2,28 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Gemma Browser Chat (Fixed)</title>
+    <title>Qwen3 Browser Chat (Direct Load)</title>
     <style>
         body { font-family: sans-serif; max-width: 700px; margin: 20px auto; background: #f0f2f5; }
         #chat-container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        #output { height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; background: #fafafa; white-space: pre-wrap; }
+        #output { height: 450px; overflow-y: auto; border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; background: #fafafa; white-space: pre-wrap; line-height: 1.6; }
         #input-area { display: flex; gap: 10px; }
-        input { flex: 1; padding: 10px; }
-        button { padding: 10px 20px; background: #4285f4; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        input { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 6px; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
         button:disabled { background: #ccc; }
-        #status { font-size: 0.8rem; color: #555; margin-top: 10px; line-height: 1.4; }
+        #status { font-size: 0.8rem; color: #555; margin-top: 10px; background: #eef; padding: 8px; border-radius: 4px; }
     </style>
 </head>
 <body>
 
 <div id="chat-container">
-    <h2>Gemma-2b Chat</h2>
-    <div id="output">初期化中...（コンソールを確認してください）</div>
+    <h2>Qwen3 1.5B Chat (Latest)</h2>
+    <div id="output">Qwen3を読み込み中... 初回は1GB程度のロードが発生します。</div>
     <div id="input-area">
-        <input type="text" id="user-input" placeholder="メッセージを入力..." disabled>
+        <input type="text" id="user-input" placeholder="日本語で質問してね..." disabled>
         <button id="send-btn" disabled>送信</button>
     </div>
-    <div id="status">Status: 待機中...</div>
+    <div id="status">Status: 準備中...</div>
 </div>
 
 <script type="module">
@@ -34,27 +34,33 @@
     const userInput = document.getElementById("user-input");
     const sendBtn = document.getElementById("send-btn");
 
-    // モデルID
+    // モデル名とHugging Face上のパス
     const modelId = "Qwen3-1.5B-Instruct-q4f16_1-MLC";
+    const modelUrl = "https://huggingface.co/mlc-ai/Qwen3-1.5B-Instruct-q4f16_1-MLC/resolve/main/";
+
+    let engine;
 
     async function init() {
         try {
-            status.innerText = "Status: WebGPUの準備とモデルの読み込みを開始...";
+            status.innerText = "Status: WebGPUの初期化中...";
             
-            // WebLLMに「どこからモデルと実行プログラムを持ってくるか」を明示的に教える
-            const engine = await webllm.CreateMLCEngine(modelId, {
+            // WebLLMにカスタムモデルリストを渡して初期化
+            engine = await webllm.CreateMLCEngine(modelId, {
+                model_list: [{
+                    "model": modelUrl,
+                    "model_id": modelId,
+                    "model_lib": webllm.modelLibURLPrefix + webllm.modelVersion + "/Qwen2-1.5B-Instruct-q4f16_1-v1.wasm", // Qwen3は2.5/2と互換性のあるWASMで動くことが多いです
+                }],
                 initProgressCallback: (p) => {
                     status.innerText = `Status: ${p.text}`;
-                    console.log(p.text);
                 }
             });
 
-            window.engine = engine; // 送信関数で使うためにグローバルに置く
-            output.innerText = "[システム] 準備完了！\n";
+            output.innerText = "[システム] Qwen3のロードが完了しました！日本語で話しかけてみてください。\n";
             userInput.disabled = false;
             sendBtn.disabled = false;
         } catch (e) {
-            output.innerText = "【エラー】起動できませんでした。\n理由: " + e.message;
+            output.innerText = `【エラー】読み込みに失敗しました。\n理由: ${e.message}\n\n※まだQwen3の公式MLC配布が完了していない場合は、Qwen2.5-1.5Bを試すと確実です。`;
             console.error(e);
         }
     }
@@ -66,15 +72,12 @@
         userInput.value = "";
         output.innerText += `\nあなた: ${text}\nAI: `;
         
-        const chunks = await window.engine.chat.completions.create({
-            messages: [
-                // ここで「日本語で答えろ」と強く命令します
-                { role: "system", content: "あなたは誠実で親切な日本人のアシスタントです。必ず日本語で回答してください。" },
-                { role: "user", content: text }
-            ],
-            stream: true,
-            temperature: 0.7, // 少し柔軟な回答にする
-        });
+        const messages = [
+            { role: "system", content: "あなたは優秀で親切なAIアシスタントです。必ず日本語で回答してください。" },
+            { role: "user", content: text }
+        ];
+
+        const chunks = await engine.chat.completions.create({ messages, stream: true });
 
         for await (const chunk of chunks) {
             const content = chunk.choices[0].delta.content || "";
@@ -86,7 +89,6 @@
 
     sendBtn.onclick = sendMessage;
     userInput.onkeypress = (e) => { if(e.key === "Enter") sendMessage(); };
-
     init();
 </script>
 </body>

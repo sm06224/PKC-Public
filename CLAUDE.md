@@ -11,6 +11,9 @@
 3. 最新 dev ブランチを特定
    `git branch -r --sort=-committerdate | grep -v 'origin/main' | grep -v 'origin/claude/sync-pkc2-html' | grep -v 'origin/dependabot' | head -1`
 4. `dist/pkc2.html`・`PKC2-Extensions/pkc2-manual.html` を取得
+   - DEV用HTML: `git log --oneline origin/main..origin/<dev-branch>` でdevがmainより先行コミットを持つか確認
+   - **先行コミットあり** → devブランチの `dist/pkc2.html` を使用
+   - **先行コミットなし**（安定版の方が後発）→ mainの `dist/pkc2.html` をDEVにも使用
 5. md5sum で変更検知 → 変更なしならスキップ
 6. feature branch `claude/sync-pkc2-html-7axZm` に commit & push
 7. PR 作成 → MCP でマージ
